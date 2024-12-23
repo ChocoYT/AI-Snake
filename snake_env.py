@@ -16,7 +16,7 @@ class Direction(Enum):
     DOWN = 4
 
 
-point = namedtuple("Point", 'x, y')
+Point = namedtuple("Point", 'x, y')
 
 BLOCK_SIZE = 10
 SPEED = 144
@@ -42,9 +42,9 @@ class SnakeEnv:
 
     def reset(self):
         self.direction = Direction.RIGHT
-        self.head = point(self.w / 2, self.h / 2)
-        self.snake = [self.head, point(self.head.x - BLOCK_SIZE, self.head.y),
-                      point(self.head.x - 2 * BLOCK_SIZE, self.head.y)]
+        self.head = Point(self.w / 2, self.h / 2)
+        self.snake = [self.head, Point(self.head.x - BLOCK_SIZE, self.head.y),
+                      Point(self.head.x - 2 * BLOCK_SIZE, self.head.y)]
 
         self.score = 0
         self.food = None
@@ -54,7 +54,7 @@ class SnakeEnv:
     def _place_food(self):
         x = random.randint(0, (self.w - BLOCK_SIZE) // BLOCK_SIZE) * BLOCK_SIZE
         y = random.randint(0, (self.h - BLOCK_SIZE) // BLOCK_SIZE) * BLOCK_SIZE
-        self.food = point(x, y)
+        self.food = Point(x, y)
         if self.food in self.snake:
             self._place_food()
 
@@ -75,16 +75,15 @@ class SnakeEnv:
         gameOver = False
         if self.is_collision() or self.frameIter > (len(self.snake) * 100):
             gameOver = True
-            reward -= 10
+            reward = -10
             return reward, gameOver, self.score
-        
+
         # Check if Food Eaten
         if self.head == self.food:
             self.score += 1
-            reward += 10
+            reward = 10
             self._place_food()
         else:
-            reward -= 1
             self.snake.pop()
 
         # Refresh Display
@@ -132,7 +131,7 @@ class SnakeEnv:
         elif self.direction == Direction.UP:
             y -= BLOCK_SIZE
 
-        self.head = point(x, y)
+        self.head = Point(x, y)
 
     def _update_ui(self):
         self.display.fill((0, 0, 0))

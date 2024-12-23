@@ -2,12 +2,12 @@ import torch
 import random
 import numpy as np
 from collections import deque
-from snake_env import SnakeEnv, Direction, point, BLOCK_SIZE
+from snake_env import SnakeEnv, Direction, Point, BLOCK_SIZE
 from model import LinearQnet, QTrainer
 import os
 
-# from helper import plot
-# from threading import Thread
+from helper import plot
+from threading import Thread
 
 MAX_MEM = 100000
 BATCH_SIZE = 1000
@@ -22,18 +22,20 @@ class Agent:
         self.gamma = 0.9  # discount
         self.memory = deque(maxlen=MAX_MEM)
         self.model = LinearQnet(11, 512, 3)
+        
         if os.path.exists('./models/model1.pth'):
             checkpoint = torch.load('./models/model1.pth')
             self.model.load_state_dict(checkpoint)
+            
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
     @staticmethod
     def get_state(game):
         head = game.snake[0]
-        point_l = point(head.x - BLOCK_SIZE, head.y)
-        point_r = point(head.x + BLOCK_SIZE, head.y)
-        point_u = point(head.x, head.y - BLOCK_SIZE)
-        point_d = point(head.x, head.y + BLOCK_SIZE)
+        point_l = Point(head.x - BLOCK_SIZE, head.y)
+        point_r = Point(head.x + BLOCK_SIZE, head.y)
+        point_u = Point(head.x, head.y - BLOCK_SIZE)
+        point_d = Point(head.x, head.y + BLOCK_SIZE)
 
         dir_l = game.direction == Direction.LEFT
         dir_r = game.direction == Direction.RIGHT
@@ -103,33 +105,35 @@ class Agent:
 
         return final_move
 
-    # def get_action(self, state):
-    #     final_move = [0, 0, 0]
-    #     state0 = torch.tensor(state, dtype=torch.float)
-    #     prediction = self.model(state0)
-    #     move = torch.argmax(prediction).item()
-    #     final_move[move] = 1
-    #
-    #     return final_move
+    def get_action(self, state):
+        final_move = [0, 0, 0]
+        state0 = torch.tensor(state, dtype=torch.float)
+        prediction = self.model(state0)
+        move = torch.argmax(prediction).item()
+        final_move[move] = 1
+
+        return final_move
 
 
-# def get_new_thread(func, *args):
-#     thread = Thread(target=func, args=args)
-#     thread.start()
-#     thread.join()
+def get_new_thread(func, *args):
+    thread = Thread(target=func, args=args)
+    thread.start()
+    thread.join()
 
 
 def train():
-    # plot_scores = []
-    # plot_mean_scores = []
-    # total_score = 0
+    plot_scores = []
+    plot_mean_scores = []
+    total_score = 0
+    
     record = 0
+    
     agent = Agent()
     game = SnakeEnv()
     while True:
         # get old state
         state_old = agent.get_state(game)
-
+        
         # get move
         final_move = agent.get_action(state_old)
 
@@ -151,12 +155,13 @@ def train():
             if score > record:
                 record = score
                 agent.model.save()
+                
+            total_score += score
 
-            # plot_scores.append(score)
-            # total_score += score
-            # plot_mean_scores.append(total_score / agent.n_games)
-            # plot(plot_scores, plot_mean_scores)
-            # get_new_thread(plot, (plot_scores, plot_mean_scores))
+            #plot_scores.append(score)
+            #plot_mean_scores.append(total_score / agent.n_games)
+            #plot(plot_scores, plot_mean_scores)
+            #get_new_thread(plot, plot_scores, plot_mean_scores)
 
 
 if __name__ == '__main__':
