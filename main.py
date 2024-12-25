@@ -17,7 +17,7 @@ LR = 0.001
 class Agent:
 
     def __init__(self):
-        self.n_games = 0
+        self.gameNum = 0
         self.epsilon = 0  # random
         self.gamma = 0.9  # discount
         self.memory = deque(maxlen=MAX_MEM)
@@ -30,7 +30,7 @@ class Agent:
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
     @staticmethod
-    def get_state(game):
+    def getState(game):
         head = game.snake[0]
         point_l = Point(head.x - BLOCK_SIZE, head.y)
         point_r = Point(head.x + BLOCK_SIZE, head.y)
@@ -43,35 +43,35 @@ class Agent:
         dir_d = game.direction == Direction.DOWN
 
         state = [
-            # Danger straight
-            (dir_r and game.is_collision(point_r)) or
-            (dir_l and game.is_collision(point_l)) or
-            (dir_u and game.is_collision(point_u)) or
-            (dir_d and game.is_collision(point_d)),
+            # Danger Straight
+            (dir_r and game.isCollision(point_r)) or
+            (dir_l and game.isCollision(point_l)) or
+            (dir_u and game.isCollision(point_u)) or
+            (dir_d and game.isCollision(point_d)),
 
-            # Danger right
-            (dir_u and game.is_collision(point_r)) or
-            (dir_d and game.is_collision(point_l)) or
-            (dir_l and game.is_collision(point_u)) or
-            (dir_r and game.is_collision(point_d)),
+            # Danger Right
+            (dir_u and game.isCollision(point_r)) or
+            (dir_d and game.isCollision(point_l)) or
+            (dir_l and game.isCollision(point_u)) or
+            (dir_r and game.isCollision(point_d)),
 
-            # Danger left
-            (dir_d and game.is_collision(point_r)) or
-            (dir_u and game.is_collision(point_l)) or
-            (dir_r and game.is_collision(point_u)) or
-            (dir_l and game.is_collision(point_d)),
+            # Danger Left
+            (dir_d and game.isCollision(point_r)) or
+            (dir_u and game.isCollision(point_l)) or
+            (dir_r and game.isCollision(point_u)) or
+            (dir_l and game.isCollision(point_d)),
 
-            # Move direction
+            # Move Direction
             dir_l,
             dir_r,
             dir_u,
             dir_d,
 
             # Food location
-            game.food.x < game.head.x,  # food left
-            game.food.x > game.head.x,  # food right
-            game.food.y < game.head.y,  # food up
-            game.food.y > game.head.y  # food down
+            game.food.x < game.head.x,  # Food Left
+            game.food.x > game.head.x,  # Food Right
+            game.food.y < game.head.y,  # Food Up
+            game.food.y > game.head.y,  # Food Down
         ]
 
         return np.array(state, dtype=int)
@@ -79,7 +79,7 @@ class Agent:
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
-    def train_long_memory(self):
+    def trainLongMem(self):
         if len(self.memory) > BATCH_SIZE:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
         else:
@@ -88,80 +88,72 @@ class Agent:
         states, actions, rewards, next_states, dones = zip(*mini_sample)
         self.trainer.train_step(states, actions, rewards, next_states, dones)
 
-    def train_short_memory(self, state, action, reward, next_state, done):
+    def trainShortMem(self, state, action, reward, next_state, done):
         self.trainer.train_step(state, action, reward, next_state, done)
 
-    def get_action(self, state):
-        self.epsilon = 80 - self.n_games
-        final_move = [0, 0, 0]
+    def getAction(self, state):
+        self.epsilon = 80 - self.gameNum
+        nextMove = [0, 0, 0]
         if random.randint(0, 200) < self.epsilon:
             move = random.randint(0, 2)
-            final_move[move] = 1
+            nextMove[move] = 1
         else:
             state0 = torch.tensor(state, dtype=torch.float)
             prediction = self.model(state0)
             move = torch.argmax(prediction).item()
-            final_move[move] = 1
+            nextMove[move] = 1
 
-        return final_move
-
-    def get_action(self, state):
-        final_move = [0, 0, 0]
-        state0 = torch.tensor(state, dtype=torch.float)
-        prediction = self.model(state0)
-        move = torch.argmax(prediction).item()
-        final_move[move] = 1
-
-        return final_move
+        return nextMove
 
 
-def get_new_thread(func, *args):
+def getNewThread(func, *args):
     thread = Thread(target=func, args=args)
     thread.start()
     thread.join()
 
 
 def train():
-    plot_scores = []
-    plot_mean_scores = []
-    total_score = 0
+    plotScores = []
+    plotMeanScores = []
+    totalScore = 0
     
     record = 0
     
     agent = Agent()
     game = SnakeEnv()
+    
     while True:
-        # get old state
-        state_old = agent.get_state(game)
+        # Get Old State
+        oldState = agent.getState(game)
         
-        # get move
-        final_move = agent.get_action(state_old)
+        # Get Move
+        nextMove = agent.getAction(oldState)
 
-        # perform move and get new state
-        reward, done, score = game.play_step(final_move)
-        state_new = agent.get_state(game)
+        # Perform move & Get New State
+        reward, done, score = game.playStep(nextMove)
+        newState = agent.getState(game)
 
-        # train short memory
-        agent.train_short_memory(state_old, final_move, reward, state_new, done)
+        # Train Short Memory
+        agent.trainShortMem(oldState, nextMove, reward, newState, done)
 
-        agent.remember(state_old, final_move, reward, state_new, done)
+        agent.remember(oldState, nextMove, reward, newState, done)
 
         if done:
-            # train and plot results
+            # Train and Plot Results
             game.reset()
-            agent.n_games += 1
-            agent.train_long_memory()
+            agent.gameNum += 1
+            agent.trainLongMem()
 
             if score > record:
                 record = score
                 agent.model.save()
                 
-            total_score += score
+            totalScore += score
 
-            #plot_scores.append(score)
-            #plot_mean_scores.append(total_score / agent.n_games)
-            #plot(plot_scores, plot_mean_scores)
-            #get_new_thread(plot, plot_scores, plot_mean_scores)
+            #plotScores.append(score)
+            #plotMeanScores.append(totalScore / agent.gameNum)
+            #plot(plotScores, plotMeanScores)
+            #getNewThread(plot, plotScores, plotMeanScores)
 
 
 if __name__ == '__main__':
